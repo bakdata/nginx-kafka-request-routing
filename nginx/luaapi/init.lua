@@ -1,3 +1,4 @@
+-- safe way to load csjon according to docs
 local cjson = require "cjson"
 local cjson2 = cjson.new()
 local cjson_safe = require "cjson.safe"
@@ -34,6 +35,4 @@ local partitions = ngx.shared.partitions
 if partitions["num_partitions"] == nil then
     ngx.timer.at(0, set_partitions, partitions)
 end
-
-
 
