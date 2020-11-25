@@ -1,0 +1,22 @@
+apiVersion: "apps/v1"
+kind: "Deployment"
+metadata:
+  name: wrk
+  labels:
+    name: wrk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wrk
+  template:
+    metadata:
+      labels:
+        app: wrk
+    spec:
+      containers:
+        - name: wrk
+          image: torben96/wrk
+          imagePullPolicy: IfNotPresent
+          command: [ "sh", "-c", "--" ]
+          args: [ "tail -f /dev/null" ]

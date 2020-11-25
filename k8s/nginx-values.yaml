@@ -1,0 +1,266 @@
+
+## nginx configuration
+## Ref: https://github.com/kubernetes/ingress-nginx/blob/master/controllers/nginx/configuration.md
+##
+controller:
+  image:
+    repository: k8s.gcr.io/ingress-nginx/controller
+    tag: "v0.41.2"
+    digest: sha256:1f4f402b9c14f3ae92b11ada1dfe9893a88f0faeb0b2f4b903e2c67a0c3bf0de
+    pullPolicy: IfNotPresent
+    # www-data -> uid 101
+    runAsUser: 101
+    allowPrivilegeEscalation: true
+
+  # Configures the ports the nginx-controller listens on
+  containerPort:
+    http: 80
+    https: 443
+
+
+  # Optionally change this to ClusterFirstWithHostNet in case you have 'hostNetwork: true'.
+  # By default, while using host network, name resolution uses the host's DNS. If you wish nginx-controller
+  # to keep resolving names inside the k8s network, use ClusterFirstWithHostNet.
+  dnsPolicy: ClusterFirst
+
+  # Bare-metal considerations via the host network https://kubernetes.github.io/ingress-nginx/deploy/baremetal/#via-the-host-network
+  # Ingress status was blank because there is no Service exposing the NGINX Ingress controller in a configuration using the host network, the default --publish-service flag used in standard cloud setups does not apply
+  reportNodeInternalIp: false
+
+  # Required for use with CNI based kubernetes installations (such as ones set up by kubeadm),
+  # since CNI and hostport don't mix yet. Can be deprecated once https://github.com/kubernetes/kubernetes/issues/23920
+  # is merged
+  hostNetwork: false
+
+  ## Use host ports 80 and 443
+  ## Disabled by default
+  ##
+  hostPort:
+    enabled: false
+    ports:
+      http: 80
+      https: 443
+
+  ## Election ID to use for status update
+  ##
+  electionID: ingress-controller-leader
+
+  ## Name of the ingress class to route through this controller
+  ##
+  ingressClass: nginx
+
+  ## Allows customization of the source of the IP address or FQDN to report
+  ## in the ingress status field. By default, it reads the information provided
+  ## by the service. If disable, the status field reports the IP address of the
+  ## node or nodes where an ingress controller pod is running.
+  publishService:
+    enabled: true
+    ## Allows overriding of the publish service to bind to
+    ## Must be <namespace>/<service_name>
+    ##
+    pathOverride: ""
+
+  ## Limit the scope of the controller
+  ##
+  scope:
+    enabled: true
+    namespace: ""   # defaults to .Release.Namespace
+
+  ## DaemonSet or Deployment
+  ##
+  kind: Deployment
+
+  # minReadySeconds to avoid killing pods before we are ready
+  ##
+  minReadySeconds: 0
+
+  ## terminationGracePeriodSeconds
+  ## wait up to five minutes for the drain of connections
+  ##
+  terminationGracePeriodSeconds: 300
+
+  ## Node labels for controller pod assignment
+  ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
+  ##
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  ## Liveness and readiness probe values
+  ## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+  ##
+  livenessProbe:
+    failureThreshold: 5
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+    port: 10254
+  readinessProbe:
+    failureThreshold: 3
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+    port: 10254
+
+  # Path of the health check endpoint. All requests received on the port defined by
+  # the healthz-port parameter are forwarded internally to this path.
+  healthCheckPath: "/healthz"
+
+  replicaCount: 1
+
+  minAvailable: 1
+
+  # Define requests resources to avoid probe issues due to CPU utilization in busy nodes
+  # ref: https://github.com/kubernetes/ingress-nginx/issues/4735#issuecomment-551204903
+  # Ideally, there should be no limits.
+  # https://engineering.indeedblog.com/blog/2019/12/cpu-throttling-regression-fix/
+  resources:
+    #  limits:
+    #    cpu: 100m
+    #    memory: 90Mi
+    requests:
+      cpu: 100m
+      memory: 90Mi
+
+  # Mutually exclusive with keda autoscaling
+  autoscaling:
+    enabled: false
+
+  # Mutually exclusive with hpa autoscaling
+  keda:
+    apiVersion: "keda.sh/v1alpha1"
+    # apiVersion changes with keda 1.x vs 2.x
+    # 2.x = keda.sh/v1alpha1
+    # 1.x = keda.k8s.io/v1alpha1
+    enabled: false
+
+  ## Enable mimalloc as a drop-in replacement for malloc.
+  ## ref: https://github.com/microsoft/mimalloc
+  ##
+  enableMimalloc: true
+
+  ## Override NGINX template
+  customTemplate:
+    configMapName: ""
+    configMapKey: ""
+
+  service:
+    enabled: true
+
+    annotations: {}
+    labels: {}
+    # clusterIP: ""
+
+    ## List of IP addresses at which the controller services are available
+    ## Ref: https://kubernetes.io/docs/user-guide/services/#external-ips
+    ##
+    externalIPs: []
+
+    # loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+
+    enableHttp: true
+    enableHttps: true
+
+    ## Set external traffic policy to: "Local" to preserve source IP on
+    ## providers supporting it
+    ## Ref: https://kubernetes.io/docs/tutorials/services/source-ip/#source-ip-for-services-with-typeloadbalancer
+    # externalTrafficPolicy: ""
+
+    # Must be either "None" or "ClientIP" if set. Kubernetes will default to "None".
+    # Ref: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
+    # sessionAffinity: ""
+
+    # specifies the health check node port (numeric port number) for the service. If healthCheckNodePort isn’t specified,
+    # the service controller allocates a port from your cluster’s NodePort range.
+    # Ref: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
+    # healthCheckNodePort: 0
+
+    ports:
+      http: 80
+      https: 443
+
+    targetPorts:
+      http: http
+      https: https
+
+    type: ClusterIP
+
+    # type: NodePort
+    # nodePorts:
+    #   http: 32080
+    #   https: 32443
+    #   tcp:
+    #     8080: 32808
+    nodePorts:
+      http: ""
+      https: ""
+      tcp: {}
+      udp: {}
+
+    ## Enables an additional internal load balancer (besides the external one).
+    ## Annotations are mandatory for the load balancer to come up. Varies with the cloud service.
+    internal:
+      enabled: false
+      annotations: {}
+
+      ## Restrict access For LoadBalancer service. Defaults to 0.0.0.0/0.
+      loadBalancerSourceRanges: []
+
+      ## Set external traffic policy to: "Local" to preserve source IP on
+      ## providers supporting it
+      ## Ref: https://kubernetes.io/docs/tutorials/services/source-ip/#source-ip-for-services-with-typeloadbalancer
+      # externalTrafficPolicy: ""
+
+  extraContainers: []
+
+  admissionWebhooks:
+    annotations: {}
+    enabled: false
+
+  metrics:
+    port: 10254
+    # if this port is changed, change healthz-port: in extraArgs: accordingly
+    enabled: false
+
+
+  ## Improve connection draining when ingress controller pod is deleted using a lifecycle hook:
+  ## With this new hook, we increased the default terminationGracePeriodSeconds from 30 seconds
+  ## to 300, allowing the draining of connections up to five minutes.
+  ## If the active connections end before that, the pod will terminate gracefully at that time.
+  ## To effectively take advantage of this feature, the Configmap feature
+  ## worker-shutdown-timeout new value is 240s instead of 10s.
+  ##
+  lifecycle:
+    preStop:
+      exec:
+        command:
+          - /wait-shutdown
+
+  priorityClassName: ""
+
+## Rollback limit
+##
+revisionHistoryLimit: 10
+
+## Default 404 backend
+##
+defaultBackend:
+  ##
+  enabled: false
+
+
+## Enable RBAC as per https://github.com/kubernetes/ingress/tree/master/examples/rbac/nginx and https://github.com/kubernetes/ingress/issues/266
+rbac:
+  create: true
+  scope: true
+
+# If true, create & use Pod Security Policy resources
+# https://kubernetes.io/docs/concepts/policy/pod-security-policy/
+podSecurityPolicy:
+  enabled: false
+
+serviceAccount:
+  create: true
+  name:
