@@ -1,7 +1,7 @@
 # Scaling Requests to Queryable Apache Kafka Topics with nginx
 
 This repository contains the code for our blog post [Scaling Requests to
-Queryable Apache Kafka Topics with nginx]().
+Queryable Apache Kafka Topics with nginx](https://medium.com/bakdata/scaling-requests-to-queryable-kafka-topics-with-nginx-957bb3a9c532).
 
 It includes the custom routing logic for nginx, the wrk benchmark script
 , and the Kubernetes manifests.
